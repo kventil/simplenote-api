@@ -1,0 +1,6 @@
+- testing (arrrr unit)
+- create a class representing a note for better handling and some logic (stuff like note.update or note.delete would be fancy)
+- singleton Simplenoteapi 
+- wrapper with option to save list on harddrive for offline use
+? evlt. an intelligent api which fetches notes only once 
+- sync logic 
