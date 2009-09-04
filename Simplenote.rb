@@ -22,6 +22,22 @@ require "json"
 
 #Simple wrapper for the API provided by the guys from simplenote.
 #(http://www.simplenoteapp.com/index.html)
+#= Example
+# require 'Simplenote'
+# api = Simplenote.new(user,pwd)
+#
+# puts "====== Creating a note"
+# key = api.createNote("This poor note will be created, updated and than...")
+# puts "====== Fetching note"
+# pp api.getNote(key)
+# puts "====== Updating note"
+# api.updateNote(key,"deleted")
+# puts "====== fetching it again"
+# pp api.getNote(key)
+# puts "====== deleting note"
+# api.deleteNote(key)
+# puts "====== fetching note again"
+# pp api.getNote(key)
 class Simplenote
   
   #use on agent to provide authentication via cookies (in the future)
