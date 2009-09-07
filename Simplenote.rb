@@ -5,10 +5,11 @@
 # 0. removing the email/auth token and using cookies (yummi!)
 # 0. advanced error handling 
 # 0. more documentation
-# See {Simplenote} for more details
-# = Authors
-# Robert Bahmann
-#
+# See Simplenote for more details
+# 
+# Author::    Robert Bahmann  (mailto:robert.bahmann@gmail.com)
+# License::   Distributes under the same terms as Ruby
+
 
 require "rubygems"
 require "net/https"
@@ -24,19 +25,20 @@ require "json"
 #(http://www.simplenoteapp.com/index.html)
 #= Example
 # require 'Simplenote'
-# api = Simplenote.new(user,pwd)
+# #creating the obj with user and password
+# api = Simplenote.new(email,password)
 #
-# puts "====== Creating a note"
+# #creating a note and saving its key
 # key = api.createNote("This poor note will be created, updated and than...")
-# puts "====== Fetching note"
+# #fetching the same note via key
 # pp api.getNote(key)
-# puts "====== Updating note"
+# #updating the note with a new string 
 # api.updateNote(key,"deleted")
-# puts "====== fetching it again"
+# #fetching it again to look if it's updated ;-)
 # pp api.getNote(key)
-# puts "====== deleting note"
+# #delete the note
 # api.deleteNote(key)
-# puts "====== fetching note again"
+# #and trying to fetch it again. Have a look at the "deleted" flag (the last one which is now true)
 # pp api.getNote(key)
 class Simplenote
   
@@ -44,6 +46,8 @@ class Simplenote
   attr_reader :agent
   #token to authenticate against the api
   attr_reader :token
+  #timestamp to determine the tokens age
+  attr_reader :tokenTimeStamp
   #login credentials
   attr_reader :email
   attr_reader :password
@@ -53,6 +57,7 @@ class Simplenote
     @email = ERB::Util.url_encode(email)  
     @password = password
     @token = nil
+    @tokenTimeStamp = nil
   end
   
   
@@ -73,12 +78,11 @@ class Simplenote
   end
   
   #Checks if we have a valid token
-  #ToDo: associate timestamp with token to prevent
-  #unnecessary authentification
   def refreshToken
-    # are we connected?
-    if @token.nil?
+    # is there a token? (and is it's timestamp not older than 24h?)
+    if @token.nil? or @tokenTimeStamp < Time.now - 86400
       @token = getToken(@email,@password)
+      @tokenTimeStamp = Time.now
     end
   end
   
@@ -100,8 +104,8 @@ class Simplenote
   end
 
 
-  #Searches for the term and returns by default 10 results.
-  # 
+  #Searches for the term and returns by default 10 results
+  #as a json db
   def search(term,maxResults = 10 )
     refreshToken
     url = "/api/search?" + "query=#{ERB::Util.url_encode(term)}\&results=#{maxResults.to_i}\&offset=2\&auth=#{@token}\&email=#{@email}"
@@ -109,13 +113,14 @@ class Simplenote
     return JSON.parse(result.body), JSON.parse(result.body)['responseonse']['totalRecords'].to_i
   end
 
-  #
+  #fetches note via key and returns an array:
+  # [text,key,createdate,modifyDate,deleted]
   def getNote(key)
     refreshToken
     url = "/api/note?key=#{key}&auth=#{@token}\&email=#{@email}&encode=base64"
     response, result = agent.get(url,nil)
-
-     unless response.code.to_i == 200 or result['note-key'].nil?
+    
+     unless response.code.to_i == 200
        raise "Failed to fetch note for \'#{key}\'"
      end
     
@@ -127,21 +132,30 @@ class Simplenote
     return body,key,createDate,modifyDate,deleted
   end
   
+  #creates a new note and returns it's associated key
   def createNote(noteText)
     refreshToken
     path = "/api/note?auth=#{@token}\&email=#{@email}&modify=#{ERB::Util.url_encode(Time.now.strftime("%Y-%m-%d %H:%M:%S"))}"
     data = noteText
     payload = Base64.encode64(data)
     response, data = agent.post(path,payload)
+    unless response.code.to_i == 200
+      raise "Failed to create new note"
+    end
     return response.body
   end
   
+  #Updates note with given noteText and returns 
   def updateNote(key,noteText)
     refreshToken
     path = "/api/note?key=#{key}\&auth=#{@token}\&email=#{@email}&modify=#{ERB::Util.url_encode(Time.now.strftime("%Y-%m-%d %H:%M:%S"))}"
     data = noteText
     payload = Base64.encode64(data)
     response, data = agent.post(path,payload)
+    
+    unless response.code.to_i == 200
+      raise "Failed to update Note \'#{key}\'"
+    end
     return response.body
   end
   
