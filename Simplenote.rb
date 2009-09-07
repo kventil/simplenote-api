@@ -67,7 +67,7 @@ class Simplenote
      path = '/api/login'
      data = "email=#{@email}&password=#{ERB::Util.url_encode(password)}" 
      payload = Base64.encode64(data)
-     puts payload
+     puts payload     
      
      response, data = agent.post(path,payload)
      
@@ -87,6 +87,7 @@ class Simplenote
   end
   
   public
+  
   #Gets an index of all notes and returns it as an json-obj
   # 
   #Sample response:
@@ -113,23 +114,31 @@ class Simplenote
     return JSON.parse(result.body), JSON.parse(result.body)['responseonse']['totalRecords'].to_i
   end
 
-  #fetches note via key and returns an array:
-  # [text,key,createdate,modifyDate,deleted]
+  #fetches note via key and returns a hash with these fields:
+  #
+  # *note-key
+  # *note-createdate
+  # *note-modifydate
+  # *deleted
+  # *note-text
+  #
+  #All fields are strings. 
   def getNote(key)
     refreshToken
     url = "/api/note?key=#{key}&auth=#{@token}\&email=#{@email}&encode=base64"
     response, result = agent.get(url,nil)
     
-     unless response.code.to_i == 200
+     unless response.code.to_i == 200 or response.nil?
        raise "Failed to fetch note for \'#{key}\'"
      end
-    
-    key = response['note-key']
-    createDate = response['note-createdate']
-    modifyDate = response['note-modifydate']
-    deleted = response['note-deleted']
-    body = Base64.decode64(result)
-    return body,key,createDate,modifyDate,deleted
+     
+    note = {}
+    note['note-key'] = response['note-key']
+    note['note-createdate'] = response['note-createdate']
+    note['note-modifydate'] = response['note-modifydate']
+    note['deleted'] = response['note-deleted']
+    note['note-text'] = Base64.decode64(result)
+    return note
   end
   
   #creates a new note and returns it's associated key
