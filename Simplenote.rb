@@ -1,4 +1,4 @@
-#! /usr/bin/ruby
+#! /usr/bin/env ruby
 # :title:Simplenote Api wrapper
 #
 # = Todo
@@ -13,13 +13,15 @@
 
 require "rubygems"
 require "net/https"
-require "net/http"
 require "erb"
 require "base64"
 require "logger"
 require "uri"
 require "pp"
 require "json"
+
+
+
 
 #Simple wrapper for the API provided by the guys from simplenote.
 #(http://www.simplenoteapp.com/index.html)
@@ -39,9 +41,11 @@ require "json"
 # #delete the note
 # api.deleteNote(key)
 # #and trying to fetch it again. Have a look at the "deleted" flag (the last one which is now true)
-# pp api.getNote(key)
+# pp api.getNote(key)     
+
+
 class Simplenote
-  
+
   #use on agent to provide authentication via cookies (in the future)
   attr_reader :agent
   #token to authenticate against the api
@@ -54,29 +58,30 @@ class Simplenote
   def initialize(email,password)
     @agent = Net::HTTP.new('simple-note.appspot.com',443)
     @agent.use_ssl = true
+    @agent.verify_mode = OpenSSL::SSL::VERIFY_NONE
     @email = ERB::Util.url_encode(email)  
     @password = password
     @token = nil
     @tokenTimeStamp = nil
   end
-  
-  
+
+
   private
   #Authenticate and fetch token
   def getToken(email,password)
-     path = '/api/login'
-     data = "email=#{@email}&password=#{ERB::Util.url_encode(password)}" 
-     payload = Base64.encode64(data)
-     puts payload     
-     
-     response, data = agent.post(path,payload)
-     
-     unless response.code.to_i == 200
-       raise "Failed to fetch token for #{email}"
-     end
-     return data.strip.to_s
+    path = '/api/login'
+    data = "email=#{@email}&password=#{ERB::Util.url_encode(password)}" 
+    payload = Base64.encode64(data)
+    puts payload     
+
+    response, token = agent.post(path,payload)       
+
+    unless response.code.to_i == 200
+      raise "Failed to fetch token for #{email}"
+    end
+    return token.strip.to_s
   end
-  
+
   #Checks if we have a valid token
   def refreshToken
     # is there a token? (and is it's timestamp not older than 24h?)
@@ -85,9 +90,9 @@ class Simplenote
       @tokenTimeStamp = Time.now
     end
   end
-  
+
   public
-  
+
   #Gets an index of all notes and returns it as an json-obj
   # 
   #Sample response:
@@ -100,7 +105,7 @@ class Simplenote
   def index()
     refreshToken
     url = "/api/index?auth=#{@token}\&email=#{@email}"
-    result = agent.get(url,nil)
+    result = agent.get(url)
     return JSON.parse(result.body)
   end
 
@@ -110,7 +115,7 @@ class Simplenote
   def search(term,maxResults = 10 )
     refreshToken
     url = "/api/search?" + "query=#{ERB::Util.url_encode(term)}\&results=#{maxResults.to_i}\&offset=2\&auth=#{@token}\&email=#{@email}"
-    result = agent.get(url,nil)
+    result = agent.get(url)
     return JSON.parse(result.body), JSON.parse(result.body)['responseonse']['totalRecords'].to_i
   end
 
@@ -126,12 +131,12 @@ class Simplenote
   def getNote(key)
     refreshToken
     url = "/api/note?key=#{key}&auth=#{@token}\&email=#{@email}&encode=base64"
-    response, result = agent.get(url,nil)
-    
-     unless response.code.to_i == 200 or response.nil?
-       raise "Failed to fetch note for \'#{key}\'"
-     end
-     
+    response, result = agent.get(url)
+
+    unless response.code.to_i == 200 or response.nil?
+      raise "Failed to fetch note for \'#{key}\'"
+    end
+
     note = {}
     note['note-key'] = response['note-key']
     note['note-createdate'] = response['note-createdate']
@@ -140,7 +145,7 @@ class Simplenote
     note['note-text'] = Base64.decode64(result)
     return note
   end
-  
+
   #creates a new note and returns it's associated key
   def createNote(noteText)
     refreshToken
@@ -153,7 +158,7 @@ class Simplenote
     end
     return response.body
   end
-  
+
   #Updates note with given noteText and returns 
   def updateNote(key,noteText)
     refreshToken
@@ -161,16 +166,17 @@ class Simplenote
     data = noteText
     payload = Base64.encode64(data)
     response, data = agent.post(path,payload)
-    
+
     unless response.code.to_i == 200
       raise "Failed to update Note \'#{key}\'"
     end
     return response.body
   end
-  
-  def deleteNote(key)
+
+  def deleteNote(key)      
+    refreshToken
     url = "/api/delete?key=#{key}\&auth=#{@token}\&email=#{@email}"
-    agent.get(url,nil)
+    agent.get(url)
   end
 end
 
