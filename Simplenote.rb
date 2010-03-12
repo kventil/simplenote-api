@@ -72,14 +72,14 @@ class Simplenote
     path = '/api/login'
     data = "email=#{@email}&password=#{ERB::Util.url_encode(password)}" 
     payload = Base64.encode64(data)
-    puts payload     
+    #puts payload     
 
     response, token = agent.post(path,payload)       
 
     unless response.code.to_i == 200
       raise "Failed to fetch token for #{email}"
     end
-    return token.strip.to_s
+    token.strip.to_s
   end
 
   #Checks if we have a valid token
@@ -106,7 +106,7 @@ class Simplenote
     refreshToken
     url = "/api/index?auth=#{@token}\&email=#{@email}"
     result = agent.get(url)
-    return JSON.parse(result.body)
+    JSON.parse(result.body)
   end
 
 
@@ -116,7 +116,7 @@ class Simplenote
     refreshToken
     url = "/api/search?" + "query=#{ERB::Util.url_encode(term)}\&results=#{maxResults.to_i}\&offset=2\&auth=#{@token}\&email=#{@email}"
     result = agent.get(url)
-    return JSON.parse(result.body), JSON.parse(result.body)['responseonse']['totalRecords'].to_i
+    JSON.parse(result.body)
   end
 
   #fetches note via key and returns a hash with these fields:
@@ -128,6 +128,7 @@ class Simplenote
   # *note-text
   #
   #All fields are strings. 
+
   def getNote(key)
     refreshToken
     url = "/api/note?key=#{key}&auth=#{@token}\&email=#{@email}&encode=base64"
@@ -142,11 +143,13 @@ class Simplenote
     note['note-createdate'] = response['note-createdate']
     note['note-modifydate'] = response['note-modifydate']
     note['deleted'] = response['note-deleted']
-    note['note-text'] = Base64.decode64(result)
-    return note
+    note['note-text'] = Base64.decode64(result)                 
+    
+    note
   end
+  alias_method :get, :getNote
 
-  #creates a new note and returns it's associated key
+  #creates a new note and returns it's associated key 
   def createNote(noteText)
     refreshToken
     path = "/api/note?auth=#{@token}\&email=#{@email}&modify=#{ERB::Util.url_encode(Time.now.strftime("%Y-%m-%d %H:%M:%S"))}"
@@ -156,8 +159,9 @@ class Simplenote
     unless response.code.to_i == 200
       raise "Failed to create new note"
     end
-    return response.body
-  end
+    response.body
+  end     
+  alias_method :create, :createNote
 
   #Updates note with given noteText and returns 
   def updateNote(key,noteText)
@@ -171,12 +175,16 @@ class Simplenote
       raise "Failed to update Note \'#{key}\'"
     end
     return response.body
-  end
-
+  end   
+  
+  alias_method :update, :updateNote                   
+   
   def deleteNote(key)      
     refreshToken
     url = "/api/delete?key=#{key}\&auth=#{@token}\&email=#{@email}"
     agent.get(url)
-  end
+  end    
+  
+  alias_method :delete, :deleteNote
 end
 
